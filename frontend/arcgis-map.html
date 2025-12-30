@@ -105,7 +105,7 @@
             doneButton.addEventListener("click", function() {
                 graphicsLayer.graphics.forEach(function(graphic) {
                     const geometry = graphic.geometry.toJSON(); // Convert geometry to JSON
-                    console.log("Sending Geometry:", geometry);
+                    console.log("Sending Geometry:", geometry); // Log geometry data
                     sendGeometryToServer(geometry);
                 });
             });
