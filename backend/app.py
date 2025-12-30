@@ -12,7 +12,7 @@ def receive_bounding_box():
         print("Received Shape Data:", data, flush=True)  # Print all shape data
         if "rings" in data:  # Check if the shape contains rings (polygon data)
             for ring in data["rings"]:
-                print("Ring Coordinates:", ring, flush=True)
+                # print("Ring Coordinates:", ring, flush=True)
                 plot_coordinates(ring)  # Plot the coordinates immediately
         return jsonify({"message": "Shape data received and plotted successfully."}), 200
     else:

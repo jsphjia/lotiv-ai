@@ -19,7 +19,7 @@
     <div id="viewDiv"></div>
 
     <script>
-        require(["esri/Map", "esri/views/MapView", "esri/widgets/Sketch", "esri/layers/GraphicsLayer"], function(Map, MapView, Sketch, GraphicsLayer) {
+        require(["esri/Map", "esri/views/MapView", "esri/widgets/Sketch", "esri/layers/GraphicsLayer", "esri/widgets/Search"], function(Map, MapView, Sketch, GraphicsLayer, Search) {
             // Create a GraphicsLayer to hold drawn shapes
             const graphicsLayer = new GraphicsLayer();
 
@@ -101,14 +101,58 @@
                 .catch(error => console.error("Error:", error));
             }
 
-            // Modify the "Done" button functionality
-            doneButton.addEventListener("click", function() {
+            // Variables to store the map's center and zoom level
+            let savedCenter = view.center.clone();
+            let savedZoom = view.zoom;
+
+            // Update the saved center and zoom whenever the view changes
+            view.watch("center, zoom", function() {
+                savedCenter = view.center.clone();
+                savedZoom = view.zoom;
+            });
+
+            // Prevent the default form submission behavior globally
+            document.addEventListener("submit", function(event) {
+                event.preventDefault();
+            });
+
+            // Modify the "Done" button functionality to ensure the map's state is preserved
+            doneButton.addEventListener("click", function(event) {
+                event.preventDefault(); // Prevent default behavior to avoid refresh
+                console.log("Done button clicked. Sending geometry data...");
+
+                // Save the current center and zoom level before sending data
+                const currentCenter = view.center.clone();
+                const currentZoom = view.zoom;
+
                 graphicsLayer.graphics.forEach(function(graphic) {
                     const geometry = graphic.geometry.toJSON(); // Convert geometry to JSON
                     console.log("Sending Geometry:", geometry); // Log geometry data
                     sendGeometryToServer(geometry);
                 });
+
+                // Restore the saved center and zoom level after sending data
+                view.goTo({
+                    center: currentCenter,
+                    zoom: currentZoom
+                }).then(() => {
+                    console.log("Map state restored to saved center and zoom.");
+                });
             });
+
+            // Add the Search widget to the top-left corner of the view
+            const searchWidget = new Search({
+                view: view, // Attach the search widget to the MapView
+                includeDefaultSources: true, // Enable default sources for suggestions
+                allPlaceholder: "Search for an address..." // Placeholder text
+            });
+
+            view.ui.add(searchWidget, {
+                position: "top-left"
+            });
+
+            // Move the zoom controls to the bottom-right corner
+            view.ui.move("zoom", "bottom-right");
         });
     </script>
 </body>
