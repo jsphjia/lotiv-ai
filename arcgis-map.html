@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArcGIS Interactive Map</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
+    <script src="https://js.arcgis.com/4.28/"></script>
+    <style>
+        html, body, #viewDiv {
+            padding: 0;
+            margin: 0;
+            height: 100%;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="viewDiv"></div>
+
+    <script>
+        require(["esri/Map", "esri/views/MapView", "esri/widgets/Sketch", "esri/layers/GraphicsLayer"], function(Map, MapView, Sketch, GraphicsLayer) {
+            // Create a GraphicsLayer to hold drawn shapes
+            const graphicsLayer = new GraphicsLayer();
+
+            // Create a map with a basemap and add the GraphicsLayer
+            const map = new Map({
+                basemap: "streets-navigation-vector",
+                layers: [graphicsLayer] // Add the GraphicsLayer to the map
+            });
+
+            // Create a MapView instance
+            const view = new MapView({
+                container: "viewDiv",
+                map: map,
+                zoom: 12,
+                center: [-118.805, 34.027]
+            });
+
+            // Add the Sketch widget to enable drawing
+            const sketch = new Sketch({
+                layer: graphicsLayer, // Connect the Sketch widget to the GraphicsLayer
+                view: view,
+                availableCreateTools: ["polygon", "rectangle"], // Allow drawing polygons and rectangles
+                creationMode: "update" // Allow users to modify shapes after drawing
+            });
+
+            // Add the Sketch widget to the top-right corner of the view
+            view.ui.add(sketch, "top-right");
+
+            // Create the "Done" button
+            const doneButton = document.createElement("button");
+            doneButton.innerText = "Done"; // Change text to 'Done'
+            doneButton.classList.add("esri-widget", "esri-widget--button", "esri-interactive"); // Match Esri theme
+            doneButton.style.display = "none"; // Initially hidden
+            doneButton.style.fontSize = "16px"; // Make text larger
+            doneButton.style.padding = "5px 10px"; // Reduce padding for smaller buffer
+            doneButton.style.width = "auto"; // Dynamically size based on text
+            doneButton.style.height = "auto"; // Dynamically size based on text
+
+            // Add the button to the top-right corner UI
+            view.ui.add(doneButton, "top-right");
+
+            // Show the button when the user starts drawing
+            sketch.on("create", function(event) {
+                if (event.state === "start") {
+                    doneButton.style.display = "block"; // Show the button
+                }
+            });
+
+            // Listen for the "create" event to capture the drawn shapes
+            sketch.on("create", function(event) {
+                if (event.state === "complete") {
+                    const geometry = event.graphic.geometry;
+                    console.log("Drawn geometry:", geometry);
+
+                    // Calculate the bounding box for the drawn shape
+                    if (geometry.extent) {
+                        const boundingBox = geometry.extent;
+                        console.log("Bounding Box:", boundingBox);
+                    }
+                }
+            });
+
+            // Function to send full geometry data to the backend
+            function sendGeometryToServer(geometry) {
+                fetch("http://127.0.0.1:5000/bounding-box", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(geometry)
+                })
+                .then(response => {
+                    if (response.ok) {
+                        console.log("Geometry sent successfully.");
+                    } else {
+                        console.error("Failed to send geometry.");
+                    }
+                })
+                .catch(error => console.error("Error:", error));
+            }
+
+            // Modify the "Done" button functionality
+            doneButton.addEventListener("click", function() {
+                graphicsLayer.graphics.forEach(function(graphic) {
+                    const geometry = graphic.geometry.toJSON(); // Convert geometry to JSON
+                    console.log("Sending Geometry:", geometry);
+                    sendGeometryToServer(geometry);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
