@@ -16,67 +16,82 @@ def visualize_floor_plan_data(pkl_file_path):
     with open(pkl_file_path, 'rb') as file:
         data = pickle.load(file)
 
-    # Extract one floor plan (assuming it's a list of 17000 floor plans)
-    if isinstance(data, list) and len(data) > 0:
-        floor_plan = data[0]  # Get the first floor plan
+    if isinstance(data, list) and data:
+        floor_plan = data[0]  # Visualize the first floor plan for simplicity
 
-        # Debugging: Print the structure of the first floor plan
-        print("First floor plan structure:", floor_plan)
-
-        # Create a plot
-        fig, ax = plt.subplots()
-        patches = []
-
-        # Iterate over the keys and plot geometries
-        for key, value in floor_plan.items():
-            if isinstance(value, (MultiPolygon, Polygon)):
-                if isinstance(value, MultiPolygon):
-                    for polygon in value.geoms:  # Iterate over individual polygons in MultiPolygon
-                        mpl_polygon = MplPolygon(list(polygon.exterior.coords), closed=True)
-                        patches.append(mpl_polygon)
-                elif isinstance(value, Polygon):
-                    mpl_polygon = MplPolygon(list(value.exterior.coords), closed=True)
-                    patches.append(mpl_polygon)
-
-        # Add patches to the plot
-        patch_collection = PatchCollection(patches, edgecolor='black', facecolor='lightblue', alpha=0.5)
-        ax.add_collection(patch_collection)
-
-        # Overlay the graph representation if available
         if 'graph' in floor_plan:
-            graph = floor_plan['graph']
+            nx_graph = floor_plan['graph']  # Extract the NetworkX graph
 
-            # Relabel nodes with integers for processing
-            mapping = {node: i for i, node in enumerate(graph.nodes)}
-            relabeled_graph = nx.relabel_nodes(graph, mapping)
+            # Relabel nodes with integers
+            mapping = {node: i for i, node in enumerate(nx_graph.nodes)}
+            relabeled_graph = nx.relabel_nodes(nx_graph, mapping)
 
-            # Ensure all nodes have valid positions
-            num_nodes = len(relabeled_graph.nodes)
-            for node in relabeled_graph.nodes:
-                if 'pos' not in relabeled_graph.nodes[node] or not isinstance(relabeled_graph.nodes[node]['pos'], (tuple, list)):
-                    relabeled_graph.nodes[node]['pos'] = (torch.rand(1).item(), torch.rand(1).item())
+            # Debugging: Print the graph structure
+            print("Graph structure:")
+            print(f"Number of nodes: {nx_graph.number_of_nodes()}")
+            print(f"Number of edges: {nx_graph.number_of_edges()}")
+            # print("Graph nodes with attributes:", nx_graph.nodes(data=True))
+            # print("Graph edges:", list(nx_graph.edges))
 
-            # Extract edges and node positions from the relabeled graph
-            edge_index = torch.tensor(list(relabeled_graph.edges), dtype=torch.long).t().numpy()
-            node_positions = {node: relabeled_graph.nodes[node]['pos'] for node in relabeled_graph.nodes}
+            # Validate and extract node features and positions
+            for node in nx_graph.nodes:
+                # Use 'type' and 'area' fields for node features
+                if 'type' in nx_graph.nodes[node] and 'area' in nx_graph.nodes[node]:
+                    room_type = nx_graph.nodes[node]['type']
+                    room_area = nx_graph.nodes[node]['area']
+                    nx_graph.nodes[node]['feature'] = [room_type, room_area]  # Combine type and area as features
+                else:
+                    print(f"Node {node} is missing 'type' or 'area'. Adding default feature.")
+                    nx_graph.nodes[node]['feature'] = ["unknown", 0]  # Default feature
 
-            # Plot edges
-            for edge in edge_index.T:
-                start, end = edge
-                x_coords = [node_positions[start][0], node_positions[end][0]]
-                y_coords = [node_positions[start][1], node_positions[end][1]]
-                ax.plot(x_coords, y_coords, 'k-', alpha=0.5)
+                if 'geometry' in nx_graph.nodes[node]:
+                    # Place the node at the center of its polygon geometry
+                    polygon = nx_graph.nodes[node]['geometry']
+                    if isinstance(polygon, Polygon):
+                        center = polygon.centroid
+                        nx_graph.nodes[node]['pos'] = (center.x, center.y)
+                    else:
+                        print(f"Node {node} has invalid geometry. Adding random position.")
+                        nx_graph.nodes[node]['pos'] = (torch.rand(1).item(), torch.rand(1).item())
+                elif 'pos' not in nx_graph.nodes[node]:
+                    print(f"Node {node} is missing 'pos'. Adding random position.")
+                    nx_graph.nodes[node]['pos'] = (torch.rand(1).item(), torch.rand(1).item())
 
-            # Plot nodes
+            # Construct the entire floor plan from the items in the floor_plan dictionary
+            for key, value in floor_plan.items():
+                if isinstance(value, MultiPolygon):
+                    for polygon in value.geoms:
+                        x, y = polygon.exterior.xy
+                        plt.fill(x, y, alpha=0.5, label=key.capitalize())
+                elif isinstance(value, Polygon):
+                    x, y = value.exterior.xy
+                    plt.fill(x, y, alpha=0.5, label=key.capitalize())
+
+            # Overlay graph nodes with their positions and label them with their types
+            node_positions = {node: nx_graph.nodes[node]['pos'] for node in nx_graph.nodes}
             x, y = zip(*node_positions.values())
-            ax.scatter(x, y, c='red', s=50, zorder=3, label='Graph Nodes')
+            node_labels = {node: nx_graph.nodes[node]['type'] for node in nx_graph.nodes if 'type' in nx_graph.nodes[node]}
 
-        # Set plot limits and aspect ratio
-        ax.autoscale()
-        ax.set_aspect('equal')
-        plt.title('Floor Plan Visualization with Graph Overlay')
-        plt.legend()
-        plt.show()
+            plt.scatter(x, y, c='red', s=50, zorder=3, label='Graph Nodes')
+
+            # Annotate nodes with their types
+            for node, (x_pos, y_pos) in node_positions.items():
+                label = node_labels.get(node, "unknown")
+                plt.text(x_pos, y_pos, str(label), fontsize=8, ha='right', color='black')
+
+            # Plot graph edges
+            for edge in nx_graph.edges:
+                start_pos = node_positions[edge[0]]
+                end_pos = node_positions[edge[1]]
+                plt.plot([start_pos[0], end_pos[0]], [start_pos[1], end_pos[1]], c='gray', linewidth=1, zorder=2)
+
+            plt.title('Floor Plan with Graph Overlay')
+            plt.xlabel('X Position')
+            plt.ylabel('Y Position')
+            plt.grid(True)
+            plt.show()
+        else:
+            print("No graph found in the floor plan.")
     else:
         print("The data format is not a list or is empty.")
 
@@ -95,6 +110,37 @@ def prepare_data(pkl_file_path):
             # Relabel nodes with integers
             mapping = {node: i for i, node in enumerate(nx_graph.nodes)}
             relabeled_graph = nx.relabel_nodes(nx_graph, mapping)
+
+            # Debugging: Print the graph structure
+            print("Graph structure:")
+            print(f"Number of nodes: {nx_graph.number_of_nodes()}")
+            print(f"Number of edges: {nx_graph.number_of_edges()}")
+            print("Graph nodes with attributes:", nx_graph.nodes(data=True))
+            print("Graph edges:", list(nx_graph.edges))
+
+            # Validate and extract node features and positions
+            for node in nx_graph.nodes:
+                # Use 'type' and 'area' fields for node features
+                if 'type' in nx_graph.nodes[node] and 'area' in nx_graph.nodes[node]:
+                    room_type = nx_graph.nodes[node]['type']
+                    room_area = nx_graph.nodes[node]['area']
+                    nx_graph.nodes[node]['feature'] = [room_type, room_area]  # Combine type and area as features
+                else:
+                    print(f"Node {node} is missing 'type' or 'area'. Adding default feature.")
+                    nx_graph.nodes[node]['feature'] = ["unknown", 0]  # Default feature
+
+                if 'geometry' in nx_graph.nodes[node]:
+                    # Place the node at the center of its polygon geometry
+                    polygon = nx_graph.nodes[node]['geometry']
+                    if isinstance(polygon, Polygon):
+                        center = polygon.centroid
+                        nx_graph.nodes[node]['pos'] = (center.x, center.y)
+                    else:
+                        print(f"Node {node} has invalid geometry. Adding random position.")
+                        nx_graph.nodes[node]['pos'] = (torch.rand(1).item(), torch.rand(1).item())
+                elif 'pos' not in nx_graph.nodes[node]:
+                    print(f"Node {node} is missing 'pos'. Adding random position.")
+                    nx_graph.nodes[node]['pos'] = (torch.rand(1).item(), torch.rand(1).item())
 
             # Convert the relabeled graph to PyTorch Geometric Data
             edge_index = torch.tensor(list(relabeled_graph.edges), dtype=torch.long).t().contiguous()
