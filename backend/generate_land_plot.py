@@ -33,15 +33,6 @@ def plot_coordinates(coordinates):
     # Ensure equal scaling for both axes
     ax.set_aspect('equal', adjustable='datalim')
 
-    # Label the lengths of the sides with 'm' (meters)
-    for i in range(len(normalized) - 1):
-        point1 = normalized[i]
-        point2 = normalized[i + 1]
-        mid_x = (point1[0] + point2[0]) / 2
-        mid_y = (point1[1] + point2[1]) / 2
-        distance = calculate_distance(point1, point2)
-        ax.text(mid_x, mid_y, f"{distance:.2f} m", color='red', fontsize=8, ha='center', va='center')
-
     # Set white background and remove axes
     ax.set_facecolor('white')
     fig.patch.set_facecolor('white')
@@ -50,3 +41,5 @@ def plot_coordinates(coordinates):
     # Save the plot as an image
     plt.savefig('plot.png', bbox_inches='tight', pad_inches=0)
     plt.close(fig)  # Close the figure to free resources
+
+    return normalized  # Return normalized coordinates for further use if needed

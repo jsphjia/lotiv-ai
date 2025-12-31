@@ -116,14 +116,10 @@
                 event.preventDefault();
             });
 
-            // Modify the "Done" button functionality to ensure the map's state is preserved
+            // Modify the "Done" button functionality to redirect to the house details page
             doneButton.addEventListener("click", function(event) {
                 event.preventDefault(); // Prevent default behavior to avoid refresh
-                console.log("Done button clicked. Sending geometry data...");
-
-                // Save the current center and zoom level before sending data
-                const currentCenter = view.center.clone();
-                const currentZoom = view.zoom;
+                console.log("Done button clicked. Redirecting to house details page...");
 
                 graphicsLayer.graphics.forEach(function(graphic) {
                     const geometry = graphic.geometry.toJSON(); // Convert geometry to JSON
@@ -131,13 +127,8 @@
                     sendGeometryToServer(geometry);
                 });
 
-                // Restore the saved center and zoom level after sending data
-                view.goTo({
-                    center: currentCenter,
-                    zoom: currentZoom
-                }).then(() => {
-                    console.log("Map state restored to saved center and zoom.");
-                });
+                // Redirect to the house details page
+                window.location.href = "house-details.html";
             });
 
             // Add the Search widget to the top-left corner of the view
