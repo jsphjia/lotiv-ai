@@ -28,13 +28,6 @@ def visualize_floor_plan_data(pkl_file_path):
                 mapping = {node: i for i, node in enumerate(nx_graph.nodes)}
                 relabeled_graph = nx.relabel_nodes(nx_graph, mapping)
 
-                # Debugging: Print the graph structure
-                # print("Graph structure:")
-                # print(f"Number of nodes: {nx_graph.number_of_nodes()}")
-                # print(f"Number of edges: {nx_graph.number_of_edges()}")
-                # print("Graph nodes with attributes:", nx_graph.nodes(data=True))
-                # print("Graph edges:", list(nx_graph.edges))
-
                 # Validate and extract node features and positions
                 for node in nx_graph.nodes:
                     # Use 'type' and 'area' fields for node features
@@ -118,13 +111,6 @@ def prepare_data(pkl_file_path):
             mapping = {node: i for i, node in enumerate(nx_graph.nodes)}
             relabeled_graph = nx.relabel_nodes(nx_graph, mapping)
 
-            # Debugging: Print the graph structure
-            print("Graph structure:")
-            print(f"Number of nodes: {nx_graph.number_of_nodes()}")
-            print(f"Number of edges: {nx_graph.number_of_edges()}")
-            print("Graph nodes with attributes:", nx_graph.nodes(data=True))
-            print("Graph edges:", list(nx_graph.edges))
-
             # Validate and extract node features and positions
             for node in nx_graph.nodes:
                 # Use 'type' and 'area' fields for node features
@@ -159,9 +145,6 @@ def prepare_data(pkl_file_path):
             bedrooms = len(floor_plan['bedroom'].geoms) if isinstance(floor_plan.get('bedroom'), MultiPolygon) else 0
             bathrooms = len(floor_plan['bathroom'].geoms) if isinstance(floor_plan.get('bathroom'), MultiPolygon) else 0
 
-            # Print the number of bedrooms and bathrooms for the current floor plan
-            print(f"Floor Plan {i + 1}: {bedrooms} bedrooms, {bathrooms} bathrooms")
-
             # Append the graph and metadata to the dataset
             dataset.append({
                 'graph': graph_data,
@@ -170,6 +153,50 @@ def prepare_data(pkl_file_path):
             })
 
     return dataset
+
+class ResidentialFloorPlanGNN(torch.nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim):
+        super(ResidentialFloorPlanGNN, self).__init__()
+        # Define GCN layers
+        self.conv1 = GCNConv(input_dim, hidden_dim)
+        self.conv2 = GCNConv(hidden_dim, output_dim)
+
+        # Additional layers for processing metadata inputs
+        self.metadata_fc = torch.nn.Linear(3, hidden_dim)  # For bedrooms, bathrooms, and floors
+        self.boundary_fc = torch.nn.Linear(hidden_dim, hidden_dim)  # For boundary image features
+
+        # Final layers for generating floor plan and graph
+        self.floor_plan_fc = torch.nn.Linear(hidden_dim, output_dim)
+        self.graph_fc = torch.nn.Linear(hidden_dim, output_dim)
+
+    def forward(self, metadata, boundary_image, data):
+        # Process metadata (bedrooms, bathrooms, floors)
+        metadata_features = F.relu(self.metadata_fc(metadata))
+
+        # Process boundary image features
+        boundary_features = F.relu(self.boundary_fc(boundary_image))
+
+        # Combine metadata and boundary features
+        combined_features = metadata_features + boundary_features
+
+        # Process graph data
+        x, edge_index = data.x, data.edge_index
+        x = self.conv1(x, edge_index)
+        x = F.relu(x)
+        x = self.conv2(x, edge_index)
+
+        # Generate floor plan and graph outputs
+        floor_plan_output = self.floor_plan_fc(combined_features)
+        graph_output = self.graph_fc(x)
+
+        return floor_plan_output, graph_output
+
+# Example usage:
+# Define the model
+# model = ResidentialFloorPlanGNN(input_dim=2, hidden_dim=16, output_dim=3)
+# metadata = torch.tensor([[3, 2, 1]])  # Example: 3 bedrooms, 2 bathrooms, 1 floor
+# boundary_image = torch.rand((1, 16))  # Example boundary image features
+# output_floor_plan, output_graph = model(metadata, boundary_image, data)
 
 if __name__ == "__main__":
     visualize_floor_plan_data('ResPlan.pkl')
