@@ -32,27 +32,17 @@ def plot_bounding_boxes(data):
             minx, miny, maxx, maxy = combined.bounds
             bounding_box = box(minx, miny, maxx, maxy)
 
-            # USED FOR DEBUGGING PURPOSES
-            # Plot the floor plan geometries
-            # plt.figure()
-            # for geom in all_geometries:
-            #     if isinstance(geom, Polygon):
-            #         x, y = geom.exterior.xy
-            #         plt.plot(x, y, color='blue', linewidth=1, label='Floor Plan Geometry')
-
             # Plot the bounding box
             plt.figure()
             x, y = bounding_box.exterior.xy
-            plt.plot(x, y, color='black', linewidth=2, label='Bounding Box')
+            plt.plot(x, y, color='black', linewidth=2)
 
-            # Set plot title and labels
-            plt.title(f'Bounding Box and Floor Plan {i + 1}')
-            plt.xlabel('X Coordinate')
-            plt.ylabel('Y Coordinate')
+            # Hide axis and labels
+            plt.axis('off')
 
             # Save the plot to the output directory
             plot_path = os.path.join(output_dir, f"floor_plan_{i + 1}.png")
-            plt.savefig(plot_path)
+            plt.savefig(plot_path, bbox_inches='tight', pad_inches=0)
             plt.close()
 
             print(f"Saved plot for floor plan {i + 1} to {plot_path}")
