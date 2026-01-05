@@ -132,7 +132,7 @@ if __name__ == "__main__":
     for i, floor_plan in enumerate(extracted_data):
         bds = floor_plan['bedrooms']
         bths = floor_plan['bathrooms']
-        features = np.load(os.path.join(output_folder, f"floor_plan_{i + 1}_features_detailed.npy"))
+        features = np.load(os.path.join(output_folder, f"floor_plan_{i + 1}_detailed_features.npy"))
 
         gnn_input = prepare_gnn_input(bds, bths, features)
         print(f"Prepared GNN input for floor plan {i + 1}:", gnn_input)
