@@ -110,7 +110,7 @@ def plot_detailed_bounding_boxes(data):
             # plt.show()
 
             # Save the plot to the output directory (commented out for now)
-            plot_path = os.path.join(output_dir, f"detailed_floor_plan_{i + 1}.png")
+            plot_path = os.path.join(output_dir, f"floor_plan_{i + 1}_detailed.png")
             plt.savefig(plot_path, bbox_inches='tight', pad_inches=0)
             plt.close()
 
