@@ -7,3 +7,7 @@ test-00.tar.xz
 train-00.tar.xz
 train-01.tar.xz
 train-00
+data-new
+data-new.zip
+backend/inference.py
+backend/floor_plan_api.py
